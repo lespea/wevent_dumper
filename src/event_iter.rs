@@ -9,23 +9,25 @@ use winapi::um::winbase::INFINITE;
 use winapi::um::winevt::{self, EvtClose, EvtNext, EvtQuery, EVT_HANDLE};
 
 use crate::errors::WinEvtError;
+use crate::win_event::WinEvent;
+use winapi::shared::winerror;
 
 const EVENTS_BUFFER: usize = 10;
 
 pub struct WinEventsIter {
     query_handle: EVT_HANDLE,
     done: bool,
-    events: VecDeque<EVT_HANDLE>,
+    events: VecDeque<Result<WinEvent, WinEvtError>>,
 }
 
 impl Iterator for WinEventsIter {
-    type Item = Result<EVT_HANDLE, WinEvtError>;
+    type Item = Result<WinEvent, WinEvtError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
             return None;
         } else if !self.events.is_empty() {
-            return self.events.pop_front().map(Ok);
+            return self.events.pop_front();
         }
 
         let mut returned: DWORD = 0;
@@ -44,11 +46,21 @@ impl Iterator for WinEventsIter {
 
         if ret != 0 {
             self.done = true;
-            return Some(Err(WinEvtError::from_dword(ret as u32)));
-        }
 
-        self.events.extend(next.iter().take(returned as usize));
-        self.next()
+            if ret == winerror::ERROR_NO_MORE_ITEMS as i32 {
+                None
+            } else {
+                Some(Err(WinEvtError::from_dword(ret)))
+            }
+        } else {
+            self.events.extend(
+                next.iter()
+                    .take(returned as usize)
+                    .map(move |&h| Ok(WinEvent::new(h))),
+            );
+
+            self.next()
+        }
     }
 }
 

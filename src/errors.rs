@@ -5,7 +5,7 @@ use windows_error::WindowsError;
 
 #[derive(Debug)]
 pub struct WinEvtError {
-    pub errno: u32,
+    pub errno: i32,
     pub msg: String,
 }
 
@@ -17,11 +17,11 @@ impl Display for WinEvtError {
 
 impl WinEvtError {
     pub fn from_last_error() -> Self {
-        Self::from_dword(unsafe { GetLastError() })
+        Self::from_dword(unsafe { GetLastError() as i32 })
     }
 
-    pub fn from_dword(errno: u32) -> Self {
-        let msg: String = match errno {
+    pub fn from_dword(errno: i32) -> Self {
+        let msg: String = match errno as u32 {
             ERROR_EVT_CANNOT_OPEN_CHANNEL_OF_QUERY => "cannot open channel of query".to_string(),
             ERROR_EVT_CHANNEL_CANNOT_ACTIVATE => "channel cannot activate".to_string(),
             ERROR_EVT_CHANNEL_NOT_FOUND => "channel not found".to_string(),
@@ -69,7 +69,7 @@ impl WinEvtError {
             ERROR_EVT_VERSION_TOO_NEW => "version too new".to_string(),
             ERROR_EVT_VERSION_TOO_OLD => "version too old".to_string(),
 
-            _ => WindowsError::new(errno).to_string(),
+            other => WindowsError::new(other).to_string(),
         };
 
         WinEvtError { errno, msg }
