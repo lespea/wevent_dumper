@@ -4,6 +4,14 @@ version = "0.1.0"
 authors = ["Adam Lesperance <lespea@gmail.com>"]
 edition = "2018"
 
+[lib]
+name = "win_events"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wevent_dumper"
+path = "src/main.rs"
+
 [dependencies]
 #wchar = "0.2"
 widestring = "0.4"
