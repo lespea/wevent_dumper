@@ -5,4 +5,9 @@ authors = ["Adam Lesperance <lespea@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+#wchar = "0.2"
+widestring = "0.4"
+windows-error = "1"
 
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["errhandlingapi", "winbase", "winerror", "winevt"] }
