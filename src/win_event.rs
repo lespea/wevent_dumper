@@ -2,7 +2,7 @@ use crate::errors::WinEvtError;
 use winapi::um::winevt::{EvtClose, EVT_HANDLE};
 
 pub struct WinEvent {
-    handle: EVT_HANDLE,
+    pub(crate) handle: EVT_HANDLE,
 }
 
 impl Drop for WinEvent {
