@@ -3,6 +3,7 @@ use crate::win_event::WinEvent;
 
 use std::ptr;
 use winapi::shared::winerror;
+use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::winevt::{self, EvtRender};
 
 pub struct Renderer {
@@ -11,7 +12,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new() -> Self {
-        Self::with_capacity(1024 * 1024)
+        Self::with_capacity(1024 * 32)
     }
 
     pub fn with_capacity(cap: usize) -> Self {
@@ -23,30 +24,33 @@ impl Renderer {
     pub fn render(&mut self, we: WinEvent) -> Result<String, WinEvtError> {
         let mut buf_used = 0;
 
-        let ret = unsafe {
+        let render_passed = unsafe {
             EvtRender(
                 ptr::null_mut(),
                 we.handle,
                 winevt::EvtRenderEventXml,
-                self.buf.len() as u32,
+                self.buf.capacity() as u32,
                 self.buf.as_mut_ptr() as *mut _,
                 &mut buf_used,
                 ptr::null_mut(),
             )
         };
 
-        if ret != 0 {
-            if ret == winerror::ERROR_INSUFFICIENT_BUFFER as i32 {
+        if render_passed == 0 {
+            let err = unsafe { GetLastError() };
+            if err == winerror::ERROR_INSUFFICIENT_BUFFER {
                 self.buf.clear();
-                self.buf.reserve_exact(buf_used as usize);
+                self.buf.reserve(buf_used as usize);
                 self.render(we)
             } else {
-                Err(WinEvtError::from_dword(ret))
+                Err(WinEvtError::from_dword(err))
             }
         } else {
             let xml = unsafe {
-                widestring::U16String::from_ptr(self.buf.as_ptr(), buf_used as usize)
-                    .to_string_lossy()
+                widestring::U16CString::from_ptr(self.buf.as_ptr(), buf_used as usize / 2 - 1)
+                    .expect("bad unicode")
+                    .to_string()
+                    .expect("bad unicode")
             };
             self.buf.clear();
             Ok(xml)

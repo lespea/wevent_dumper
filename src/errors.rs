@@ -1,11 +1,15 @@
 use std::fmt::{Display, Error, Formatter};
+
+use widestring::U16String;
+use winapi::shared::winerror;
 use winapi::shared::winerror::*;
 use winapi::um::errhandlingapi::GetLastError;
+use winapi::um::winevt::EvtGetExtendedStatus;
 use windows_error::WindowsError;
 
 #[derive(Debug)]
 pub struct WinEvtError {
-    pub errno: i32,
+    pub errno: u32,
     pub msg: String,
 }
 
@@ -15,13 +19,42 @@ impl Display for WinEvtError {
     }
 }
 
-impl WinEvtError {
-    pub fn from_last_error() -> Self {
-        Self::from_dword(unsafe { GetLastError() as i32 })
+fn try_detailed_error() -> Option<String> {
+    let mut buf = Vec::with_capacity(1024 * 32);
+    let mut used = 0;
+
+    let ret = unsafe { EvtGetExtendedStatus(buf.capacity() as u32, buf.as_mut_ptr(), &mut used) };
+
+    if ret != 0 {
+        if ret != winerror::ERROR_INSUFFICIENT_BUFFER {
+            return None;
+        } else {
+            buf.clear();
+            buf.reserve(used as usize);
+
+            let ret =
+                unsafe { EvtGetExtendedStatus(buf.capacity() as u32, buf.as_mut_ptr(), &mut used) };
+
+            if ret != 0 {
+                return None;
+            }
+        }
     }
 
-    pub fn from_dword(errno: i32) -> Self {
-        let msg: String = match errno as u32 {
+    if used == 0 {
+        None
+    } else {
+        Some(unsafe { U16String::from_ptr(buf.as_ptr(), used as usize) }.to_string_lossy())
+    }
+}
+
+impl WinEvtError {
+    pub fn from_last_error() -> Self {
+        Self::from_dword(unsafe { GetLastError() })
+    }
+
+    pub fn from_dword(errno: u32) -> Self {
+        let msg: String = match errno {
             ERROR_EVT_CANNOT_OPEN_CHANNEL_OF_QUERY => "cannot open channel of query".to_string(),
             ERROR_EVT_CHANNEL_CANNOT_ACTIVATE => "channel cannot activate".to_string(),
             ERROR_EVT_CHANNEL_NOT_FOUND => "channel not found".to_string(),
@@ -69,7 +102,7 @@ impl WinEvtError {
             ERROR_EVT_VERSION_TOO_NEW => "version too new".to_string(),
             ERROR_EVT_VERSION_TOO_OLD => "version too old".to_string(),
 
-            other => WindowsError::new(other).to_string(),
+            other => try_detailed_error().unwrap_or_else(|| WindowsError::new(other).to_string()),
         };
 
         WinEvtError { errno, msg }

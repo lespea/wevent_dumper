@@ -7,10 +7,10 @@ pub struct WinEvent {
 
 impl Drop for WinEvent {
     fn drop(&mut self) {
-        if unsafe { EvtClose(self.handle) } != 0 {
+        if unsafe { EvtClose(self.handle) } == 0 {
             panic!(format!(
                 "Couldn't close a windows event handle: {}",
-                WinEvtError::from_last_error(),
+                WinEvtError::from_last_error()
             ))
         }
     }
