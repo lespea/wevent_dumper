@@ -36,22 +36,30 @@ impl Renderer {
             )
         };
 
+        // We need # of u16 but it returns "bytes" so u8 which means we need half of this
+        let mut buf_used = (buf_used / 2) as usize;
+
         if render_passed == 0 {
             let err = unsafe { GetLastError() };
             if err == winerror::ERROR_INSUFFICIENT_BUFFER {
                 self.buf.clear();
-                self.buf.reserve(buf_used as usize);
+                self.buf.reserve(buf_used + 1);
                 self.render(we)
             } else {
                 Err(WinEvtError::from_dword(err))
             }
         } else {
+            // See if there is a null byte at end. Should be but double check just in case
+            if unsafe { self.buf.as_ptr().offset((buf_used - 1) as isize).read() } == 0 {
+                buf_used -= 1;
+            }
+
             let xml = unsafe {
-                widestring::U16CString::from_ptr(self.buf.as_ptr(), buf_used as usize / 2 - 1)
-                    .expect("bad unicode")
-                    .to_string()
-                    .expect("bad unicode")
+                widestring::U16CString::from_ptr(self.buf.as_ptr(), buf_used)
+                    .expect("bad unicode bytes")
+                    .to_string_lossy()
             };
+
             self.buf.clear();
             Ok(xml)
         }
