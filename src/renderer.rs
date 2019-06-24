@@ -10,6 +10,12 @@ pub struct Renderer {
     buf: Vec<u16>,
 }
 
+impl Default for Renderer {
+    fn default() -> Self {
+        Renderer::new()
+    }
+}
+
 impl Renderer {
     pub fn new() -> Self {
         Self::with_capacity(1024 * 32)
@@ -50,14 +56,12 @@ impl Renderer {
             }
         } else {
             // See if there is a null byte at end. Should be but double check just in case
-            if unsafe { self.buf.as_ptr().offset((buf_used - 1) as isize).read() } == 0 {
+            if unsafe { self.buf.as_ptr().add(buf_used as usize - 1).read() } == 0 {
                 buf_used -= 1;
             }
 
             let xml = unsafe {
-                widestring::U16CString::from_ptr(self.buf.as_ptr(), buf_used)
-                    .expect("bad unicode bytes")
-                    .to_string_lossy()
+                widestring::U16String::from_ptr(self.buf.as_ptr(), buf_used).to_string_lossy()
             };
 
             self.buf.clear();
