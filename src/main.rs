@@ -3,20 +3,20 @@ use win_events::errors::WinEvtError;
 use win_events::event_iter::WinEventsIter;
 use win_events::renderer::Renderer;
 
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufWriter;
 use win_events::channel_iter::ChannelIter;
 
-fn dump_security() -> Result<(), WinEvtError> {
-    println!("Getting the events");
-    let iter = WinEventsIter::get_logs_for("Security", None)?;
+const DUMP: bool = false;
+const LEVELS: bool = false;
 
-    println!("Building the renderer");
+fn dump_chan(chan: &str, fh: &mut GzEncoder<File>) -> Result<(), WinEvtError> {
+    println!("Processing {}", chan);
+    let iter = WinEventsIter::get_logs_for(chan, None)?;
+
     let mut rend = Renderer::new();
-
-    let fh = File::create("events.xml").expect("Couldn't open out file");
-    let mut fh = BufWriter::with_capacity(1024 * 16, fh);
 
     for e in iter {
         match e {
@@ -29,15 +29,35 @@ fn dump_security() -> Result<(), WinEvtError> {
 }
 
 fn print_channels() -> Result<(), WinEvtError> {
+    let fh = File::create("events.xml.gz").expect("Couldn't open out file");
+    //    let mut fh = BufWriter::with_capacity(1024 * 16, fh);
+    let mut fh = GzEncoder::new(fh, Compression::new(3));
+
     for c in ChannelIter::new().expect("Couldn't build channel iter") {
         match c {
             Err(err) => return Err(err),
-            Ok(n) => println!("{}", n),
+            Ok(n) => {
+                if let Err(e) = dump_chan(n.as_str(), &mut fh) {
+                    eprintln!("Error dumping {}: {}", n, e)
+                }
+            }
         }
     }
     Ok(())
 }
 
+fn print_levels() -> Result<(), WinEvtError> {
+    Ok(())
+}
+
 fn main() -> Result<(), WinEvtError> {
-    print_channels()
+    if DUMP {
+        print_channels()?;
+    }
+
+    if LEVELS {
+        print_levels()?;
+    }
+
+    Ok(())
 }

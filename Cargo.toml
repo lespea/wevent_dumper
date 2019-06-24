@@ -14,8 +14,13 @@ path = "src/main.rs"
 
 [dependencies]
 #wchar = "0.2"
+flate2 = "1"
 widestring = "0.4"
 windows-error = "1"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["errhandlingapi", "winbase", "winerror", "winevt"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
