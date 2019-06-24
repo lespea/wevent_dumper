@@ -13,7 +13,7 @@ use crate::win_event::WinEvent;
 const EVENTS_BUFFER: usize = 10;
 
 pub struct WinEventsIter {
-    query_handle: EVT_HANDLE,
+    handle: EVT_HANDLE,
     done: bool,
     events: VecDeque<Result<WinEvent, WinEvtError>>,
 }
@@ -33,7 +33,7 @@ impl Iterator for WinEventsIter {
 
         if let Err(e) = utils::check_okay_check(unsafe {
             EvtNext(
-                self.query_handle,
+                self.handle,
                 EVENTS_BUFFER as u32,
                 next.as_mut_ptr(),
                 INFINITE,
@@ -62,7 +62,7 @@ impl Iterator for WinEventsIter {
 
 impl Drop for WinEventsIter {
     fn drop(&mut self) {
-        crate::utils::check_okay(unsafe { EvtClose(self.query_handle) })
+        crate::utils::check_okay(unsafe { EvtClose(self.handle) })
             .expect("Couldn't close the windows event query handle")
     }
 }
@@ -88,7 +88,7 @@ impl WinEventsIter {
         })?;
 
         Ok(WinEventsIter {
-            query_handle: handle,
+            handle,
             events: VecDeque::with_capacity(EVENTS_BUFFER),
             done: false,
         })

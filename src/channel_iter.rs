@@ -59,11 +59,7 @@ impl ChannelIter {
 
 impl Drop for ChannelIter {
     fn drop(&mut self) {
-        if unsafe { EvtClose(self.handle) } == 0 {
-            panic!(format!(
-                "Couldn't close the channel enum handle: {}",
-                WinEvtError::from_last_error()
-            ))
-        }
+        crate::utils::check_okay(unsafe { EvtClose(self.handle) })
+            .expect("Couldn't close the channel enum handle")
     }
 }
