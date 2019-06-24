@@ -5,9 +5,7 @@ use std::ptr;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use widestring::U16CString;
-use winapi::shared::ntdef::{MAKELANGID, SUBLANG_ENGLISH_US};
 use winapi::um::winevt::EvtOpenPublisherMetadata;
-use winapi::um::winnt::{LANG_ENGLISH, MAKELCID, SORT_DEFAULT};
 
 use win_events;
 use win_events::channel_iter::ChannelIter;
