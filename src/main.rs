@@ -1,21 +1,20 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::ptr;
 
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use widestring::U16CString;
-use winapi::um::winevt::EvtOpenPublisherMetadata;
 
+use widestring::{U16CStr, U16CString};
 use win_events;
 use win_events::channel_iter::ChannelIter;
 use win_events::errors::WinEvtError;
 use win_events::event_iter::WinEventsIter;
+use win_events::pub_metadata::PubMetadata;
+use win_events::pub_metadata_fields::{META_PUBLISHER_GUID, META_PUBLISHER_RESOURCE_FPATH};
 use win_events::renderer::Renderer;
-use win_events::utils::*;
 
-const DUMP: bool = true;
-const LEVELS: bool = false;
+const DUMP: bool = false;
+const LEVELS: bool = true;
 
 const TEST_PROVIDER: &str = "PowerShell";
 
@@ -54,6 +53,20 @@ fn print_channels() -> Result<(), WinEvtError> {
 }
 
 fn print_levels() -> Result<(), WinEvtError> {
+    println!("Getting meta");
+    let mut meta = PubMetadata::for_publisher(TEST_PROVIDER.to_string())?;
+
+    println!("Getting prop");
+    let prop = meta.get_prop(META_PUBLISHER_RESOURCE_FPATH)?;
+    println!("{} / {}", prop.Count, prop.Type);
+
+    let guid = unsafe { prop.u.StringVal() };
+    println!(
+        "{}",
+        unsafe { U16CStr::from_ptr_str(*guid) }.to_string_lossy()
+    );
+    //    println!("{}", unsafe{U16CString::from_ptr_str(*guid)}.to_string_lossy());
+
     Ok(())
 }
 
