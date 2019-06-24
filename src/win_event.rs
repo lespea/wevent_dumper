@@ -1,4 +1,3 @@
-use crate::errors::WinEvtError;
 use winapi::um::winevt::{EvtClose, EVT_HANDLE};
 
 pub struct WinEvent {
@@ -7,12 +6,8 @@ pub struct WinEvent {
 
 impl Drop for WinEvent {
     fn drop(&mut self) {
-        if unsafe { EvtClose(self.handle) } == 0 {
-            panic!(format!(
-                "Couldn't close a windows event handle: {}",
-                WinEvtError::from_last_error()
-            ))
-        }
+        crate::utils::check_okay(unsafe { EvtClose(self.handle) })
+            .expect("Couldn't close a windows event handle")
     }
 }
 

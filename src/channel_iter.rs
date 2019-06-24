@@ -1,12 +1,11 @@
 use std::ptr;
 
-use winapi::shared::ntdef::NULL;
-use winapi::shared::winerror;
+use widestring::U16String;
 use winapi::um::winevt::{EvtClose, EvtNextChannelPath, EvtOpenChannelEnum, EVT_HANDLE};
 
+use crate::errors::WinError;
 use crate::errors::WinEvtError;
-use widestring::U16String;
-use winapi::um::errhandlingapi::GetLastError;
+use crate::utils;
 
 pub struct ChannelIter {
     handle: EVT_HANDLE,
@@ -19,49 +18,42 @@ impl Iterator for ChannelIter {
     fn next(&mut self) -> Option<Self::Item> {
         let mut filled = 0;
 
-        let got_okay = unsafe {
+        if let Err(e) = utils::check_okay_check(unsafe {
             EvtNextChannelPath(
                 self.handle,
                 self.buf.capacity() as u32,
                 self.buf.as_mut_ptr(),
                 &mut filled,
             )
-        };
+        }) {
+            return match e {
+                WinError::InsufficientBuffer => {
+                    self.buf.clear();
+                    self.buf.reserve(filled as usize);
+                    self.next()
+                }
 
-        if got_okay == 0 {
-            let err = unsafe { GetLastError() };
-            if err == winerror::ERROR_INSUFFICIENT_BUFFER {
-                self.buf.clear();
-                self.buf.reserve(filled as usize);
-                self.next()
-            } else if err == winerror::ERROR_NO_MORE_ITEMS {
-                None
-            } else {
-                Some(Err(WinEvtError::from_dword(err)))
-            }
-        } else {
-            if unsafe { self.buf.as_ptr().add(filled as usize - 1).read() } == 0 {
-                filled -= 1;
-            }
-            let s = unsafe { U16String::from_ptr(self.buf.as_ptr(), filled as usize) }
-                .to_string_lossy();
-            self.buf.clear();
-            Some(Ok(s))
+                WinError::NoMoreItems => None,
+                WinError::Err(err) => Some(Err(err)),
+            };
         }
+
+        if unsafe { self.buf.as_ptr().add(filled as usize - 1).read() } == 0 {
+            filled -= 1;
+        }
+        let s =
+            unsafe { U16String::from_ptr(self.buf.as_ptr(), filled as usize) }.to_string_lossy();
+        self.buf.clear();
+        Some(Ok(s))
     }
 }
 
 impl ChannelIter {
     pub fn new() -> Result<ChannelIter, WinEvtError> {
-        let handle = unsafe { EvtOpenChannelEnum(ptr::null_mut(), 0) };
-        if handle == NULL {
-            Err(WinEvtError::from_last_error())
-        } else {
-            Ok(ChannelIter {
-                handle,
-                buf: Vec::with_capacity(1024 * 2),
-            })
-        }
+        Ok(ChannelIter {
+            handle: utils::not_null(unsafe { EvtOpenChannelEnum(ptr::null_mut(), 0) })?,
+            buf: Vec::with_capacity(1024 * 2),
+        })
     }
 }
 

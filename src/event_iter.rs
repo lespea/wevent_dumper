@@ -3,13 +3,11 @@ use std::ptr;
 
 use widestring;
 use winapi;
-use winapi::shared::ntdef::NULL;
-use winapi::shared::winerror;
-use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::winbase::INFINITE;
 use winapi::um::winevt::{self, EvtClose, EvtNext, EvtQuery, EVT_HANDLE};
 
-use crate::errors::WinEvtError;
+use crate::errors::{WinError, WinEvtError};
+use crate::utils;
 use crate::win_event::WinEvent;
 
 const EVENTS_BUFFER: usize = 10;
@@ -33,7 +31,7 @@ impl Iterator for WinEventsIter {
         let mut returned = 0;
         let mut next: Vec<EVT_HANDLE> = vec![ptr::null_mut(); EVENTS_BUFFER];
 
-        let next_passed = unsafe {
+        if let Err(e) = utils::check_okay_check(unsafe {
             EvtNext(
                 self.query_handle,
                 EVENTS_BUFFER as u32,
@@ -42,37 +40,30 @@ impl Iterator for WinEventsIter {
                 0,
                 &mut returned,
             )
-        };
-
-        if next_passed == 0 {
-            self.done = true;
-
-            let err = unsafe { GetLastError() };
-            if err == winerror::ERROR_NO_MORE_ITEMS {
-                None
-            } else {
-                Some(Err(WinEvtError::from_dword(err)))
-            }
-        } else {
-            self.events.extend(
-                next.iter()
-                    .take(returned as usize)
-                    .map(move |&h| Ok(WinEvent::new(h))),
-            );
-
-            self.next()
+        }) {
+            return match e {
+                WinError::NoMoreItems => None,
+                _ => {
+                    self.done = true;
+                    Some(Err(e.into_err()))
+                }
+            };
         }
+
+        self.events.extend(
+            next.iter()
+                .take(returned as usize)
+                .map(|&h| Ok(WinEvent::new(h))),
+        );
+
+        self.next()
     }
 }
 
 impl Drop for WinEventsIter {
     fn drop(&mut self) {
-        if unsafe { EvtClose(self.query_handle) } == 0 {
-            panic!(format!(
-                "Couldn't close the windows event query handle: {}",
-                WinEvtError::from_last_error()
-            ))
-        }
+        crate::utils::check_okay(unsafe { EvtClose(self.query_handle) })
+            .expect("Couldn't close the windows event query handle")
     }
 }
 
@@ -82,26 +73,24 @@ impl WinEventsIter {
 
         let query = match query {
             None => ptr::null(),
-            Some(q) => widestring::U16String::from_str(q).as_ptr(),
+            Some(q) => widestring::U16CString::from_str(q)
+                .expect("Invalid query")
+                .as_ptr(),
         };
 
-        let handle = unsafe {
+        let handle = utils::not_null(unsafe {
             EvtQuery(
                 ptr::null_mut(),
                 path.as_ptr(),
                 query,
                 winevt::EvtQueryChannelPath | winevt::EvtQueryForwardDirection,
             )
-        };
+        })?;
 
-        if handle == NULL {
-            Err(WinEvtError::from_last_error())
-        } else {
-            Ok(WinEventsIter {
-                query_handle: handle,
-                events: VecDeque::with_capacity(EVENTS_BUFFER),
-                done: false,
-            })
-        }
+        Ok(WinEventsIter {
+            query_handle: handle,
+            events: VecDeque::with_capacity(EVENTS_BUFFER),
+            done: false,
+        })
     }
 }

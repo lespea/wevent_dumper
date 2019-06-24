@@ -7,6 +7,23 @@ use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::winevt::EvtGetExtendedStatus;
 use windows_error::WindowsError;
 
+pub enum WinError {
+    NoMoreItems,
+    InsufficientBuffer,
+    Err(WinEvtError),
+}
+
+impl WinError {
+    #[inline]
+    pub fn into_err(self) -> WinEvtError {
+        match self {
+            WinError::NoMoreItems => WinEvtError::from_dword(ERROR_NO_MORE_ITEMS),
+            WinError::InsufficientBuffer => WinEvtError::from_dword(ERROR_INSUFFICIENT_BUFFER),
+            WinError::Err(e) => e,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct WinEvtError {
     pub errno: u32,
