@@ -35,7 +35,7 @@ impl Renderer {
                 ptr::null_mut(),
                 we.handle,
                 winevt::EvtRenderEventXml,
-                self.buf.capacity() as u32,
+                self.buf.capacity() as u32 * 2,
                 self.buf.as_mut_ptr() as *mut _,
                 &mut buf_used,
                 ptr::null_mut(),
