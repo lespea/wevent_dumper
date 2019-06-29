@@ -2,7 +2,7 @@ use std::ptr;
 
 use widestring::U16CString;
 use winapi::um::winevt::{
-    EvtClose, EvtGetPublisherMetadataProperty, EvtOpenPublisherMetadata, EVT_HANDLE, EVT_VARIANT,
+    EvtClose, EvtGetPublisherMetadataProperty, EvtOpenPublisherMetadata, EVT_HANDLE,
 };
 use winapi::um::winnt::{
     LANG_ENGLISH, LCID, MAKELANGID, MAKELCID, SORT_DEFAULT, SUBLANG_ENGLISH_US,
@@ -12,11 +12,11 @@ use crate::errors::WinError;
 use crate::errors::WinEvtError;
 use crate::pub_metadata_fields::PubMetaField;
 use crate::utils;
+use crate::vwrapper::WevWrapper;
 
 pub struct PubMetadata {
-    name: String,
+    pub name: String,
     handle: EVT_HANDLE,
-    variant: EVT_VARIANT,
 }
 
 impl PubMetadata {
@@ -33,11 +33,7 @@ impl PubMetadata {
             )
         })?;
 
-        Ok(PubMetadata {
-            name,
-            handle,
-            variant: unsafe { std::mem::zeroed() },
-        })
+        Ok(PubMetadata { name, handle })
     }
 
     pub fn for_publisher(name: String) -> Result<Self, WinEvtError> {
@@ -47,31 +43,35 @@ impl PubMetadata {
         )
     }
 
-    pub fn get_prop(&mut self, field: PubMetaField) -> Result<EVT_VARIANT, WinEvtError> {
+    pub fn get_prop(
+        &mut self,
+        field: PubMetaField,
+        varw: &mut WevWrapper,
+    ) -> Result<(), WinEvtError> {
         let mut buf_used = 0;
+
+        let (var, vsize) = varw.get_pointer();
 
         if let Err(e) = utils::check_okay_check(unsafe {
             EvtGetPublisherMetadataProperty(
                 self.handle,
                 field.id,
                 0,
-                std::u32::MAX,
-                &mut self.variant,
+                vsize as u32,
+                var,
                 &mut buf_used,
             )
         }) {
             return match e {
-                WinError::InsufficientBuffer => panic!(format!(
-                    "Insufficient size creating a variant? :: {}/{}/{}",
-                    buf_used,
-                    std::mem::size_of::<EVT_VARIANT>(),
-                    unsafe { std::mem::size_of_val(&self.variant) }
-                )),
+                WinError::InsufficientBuffer => {
+                    varw.resize(buf_used as usize).unwrap();
+                    return self.get_prop(field, varw);
+                }
                 err => Err(err.into_err()),
             };
         }
 
-        Ok(self.variant.clone())
+        Ok(())
     }
 }
 
