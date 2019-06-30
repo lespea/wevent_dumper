@@ -45,7 +45,7 @@ impl PubMetadata {
 
     pub fn get_prop(
         &mut self,
-        field: PubMetaField,
+        field: &PubMetaField,
         varw: &mut WevWrapper,
     ) -> Result<(), WinEvtError> {
         let mut buf_used = 0;
