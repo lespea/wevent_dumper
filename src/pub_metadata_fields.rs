@@ -1,41 +1,9 @@
 use winapi::um::winevt;
 
-pub struct PubMetaField {
+struct PubMetaField {
     pub id: u32,
     pub name: &'static str,
 }
-
-pub static PUB_META_FIELDS: [PubMetaField; 29] = [
-    PUBLISHER_GUID,
-    PARAMETER_FILE_PATH,
-    MESSAGE_FILE_PATH,
-    HELP_LINK,
-    PUBLISHER_MESSAGE_ID,
-    CHANNEL_REFERENCES,
-    CHANNEL_REFERENCE_PATH,
-    CHANNEL_REFERENCE_INDEX,
-    CHANNEL_REFERENCE_ID,
-    CHANNEL_REFERENCE_FLAGS,
-    CHANNEL_REFERENCE_MESSAGE_ID,
-    LEVELS,
-    LEVEL_NAME,
-    LEVEL_VALUE,
-    LEVEL_MESSAGE_ID,
-    TASKS,
-    TASK_NAME,
-    TASK_EVENT_GUID,
-    TASK_VALUE,
-    TASK_MESSAGE_ID,
-    OPCODES,
-    OPCODE_NAME,
-    OPCODE_VALUE,
-    OPCODE_MESSAGE_ID,
-    KEYWORDS,
-    KEYWORD_NAME,
-    KEYWORD_VALUE,
-    KEYWORD_MESSAGE_ID,
-    PROPERTY_ID_END,
-];
 
 pub const PUBLISHER_GUID: PubMetaField = PubMetaField {
     id: winevt::EvtPublisherMetadataPublisherGuid,

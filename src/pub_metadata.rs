@@ -1,83 +1,53 @@
-use std::ptr;
+use shared::guiddef::GUID;
 
-use widestring::U16CString;
-use winapi::um::winevt::{
-    EvtClose, EvtGetPublisherMetadataProperty, EvtOpenPublisherMetadata, EVT_HANDLE,
-};
-use winapi::um::winnt::{
-    LANG_ENGLISH, LCID, MAKELANGID, MAKELCID, SORT_DEFAULT, SUBLANG_ENGLISH_US,
-};
+pub struct Channel {
+    pub name: Option<String>,
+    pub index: Option<u32>,
+    pub id: Option<u32>,
+    pub imported: bool,
+    pub message_id: Option<u32>,
+}
 
-use crate::errors::WinError;
-use crate::errors::WinEvtError;
-use crate::pub_metadata_fields::PubMetaField;
-use crate::utils;
-use crate::vwrapper::WevWrapper;
+pub struct Level {
+    pub name: Option<String>,
+    pub id: Option<u32>,
+    pub message_id: Option<u32>,
+}
+
+pub struct Task {
+    pub name: Option<String>,
+    pub guid: Option<String>,
+    pub value: Option<u32>,
+    pub message_id: Option<u32>,
+}
+
+pub struct OpCode {
+    pub name: Option<String>,
+    pub opcode_value: Option<u16>,
+    pub task_id: Option<u16>,
+    pub message_id: Option<u32>,
+}
+
+pub struct Keyword {
+    pub name: Option<String>,
+    pub mask: Option<u64>,
+    pub message_id: Option<u32>,
+}
 
 pub struct PubMetadata {
-    pub name: String,
-    handle: EVT_HANDLE,
-}
+    pub guid: Option<String>,
 
-impl PubMetadata {
-    pub fn for_publisher_and_locale(name: String, lang: LCID) -> Result<Self, WinEvtError> {
-        let handle = utils::not_null(unsafe {
-            EvtOpenPublisherMetadata(
-                ptr::null_mut(),
-                U16CString::from_str(name.as_str())
-                    .expect("Invalid provider")
-                    .as_ptr(),
-                ptr::null_mut(),
-                lang,
-                0,
-            )
-        })?;
+    pub resource_file_path: Option<String>,
+    pub parameter_file_path: Option<String>,
+    pub message_file_path: Option<String>,
 
-        Ok(PubMetadata { name, handle })
-    }
+    pub help_link: Option<String>,
 
-    pub fn for_publisher(name: String) -> Result<Self, WinEvtError> {
-        PubMetadata::for_publisher_and_locale(
-            name,
-            MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT),
-        )
-    }
+    pub message_id: Option<u32>,
 
-    pub fn get_prop(
-        &mut self,
-        field: &PubMetaField,
-        varw: &mut WevWrapper,
-    ) -> Result<(), WinEvtError> {
-        let mut buf_used = 0;
-
-        let (var, vsize) = varw.get_pointer();
-
-        if let Err(e) = utils::check_okay_check(unsafe {
-            EvtGetPublisherMetadataProperty(
-                self.handle,
-                field.id,
-                0,
-                vsize as u32,
-                var,
-                &mut buf_used,
-            )
-        }) {
-            return match e {
-                WinError::InsufficientBuffer => {
-                    varw.resize(buf_used as usize).unwrap();
-                    return self.get_prop(field, varw);
-                }
-                err => Err(err.into_err()),
-            };
-        }
-
-        Ok(())
-    }
-}
-
-impl Drop for PubMetadata {
-    fn drop(&mut self) {
-        crate::utils::check_okay(unsafe { EvtClose(self.handle) })
-            .expect("Couldn't close the pub metadata handle")
-    }
+    pub channels: Vec<Channel>,
+    pub levels: Vec<Level>,
+    pub tasks: Vec<Task>,
+    pub opcodes: Vec<OpCode>,
+    pub keywords: Vec<Keyword>,
 }

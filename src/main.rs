@@ -9,7 +9,7 @@ use win_events;
 use win_events::channel_iter::ChannelIter;
 use win_events::errors::WinEvtError;
 use win_events::event_iter::WinEventsIter;
-use win_events::pub_metadata::PubMetadata;
+use win_events::pub_metadata_fetcher::PubMetadataFetcher;
 use win_events::pub_metadata_fields as meta_fields;
 use win_events::renderer::Renderer;
 use win_events::vwrapper::WevWrapper;
@@ -58,7 +58,7 @@ fn print_levels() -> Result<(), WinEvtError> {
     let mut varw = WevWrapper::new().unwrap();
 
     println!("Getting meta");
-    let mut meta = PubMetadata::for_publisher(TEST_PROVIDER.to_string())?;
+    let mut meta = PubMetadataFetcher::for_publisher(TEST_PROVIDER.to_string())?;
 
     for field in meta_fields::PUB_META_FIELDS.iter() {
         println!("Getting {}", field.name);
