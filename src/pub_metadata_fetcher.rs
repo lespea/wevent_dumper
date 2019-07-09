@@ -16,6 +16,7 @@ use crate::pub_metadata_fields as meta_fields;
 use crate::pub_metadata_fields::PubMetaField;
 use crate::utils;
 use crate::vwrapper::WevWrapper;
+use std::ffi::CStr;
 
 pub struct PubMetadataFetcher {
     pub name: String,
@@ -80,13 +81,44 @@ impl PubMetadataFetcher {
     fn get_str(&mut self, varw: &mut WevWrapper, field: &PubMetaField) -> Option<String> {
         if self.get_prop(field, varw).is_ok() {
             let (e, _) = varw.get_pointer();
-            if e.Type == winevt::EvtVarTypeString {
-                Some(unsafe { U16CString::from_ptr_str(*e.u.StringVal()).to_string_lossy() })
-            } else if e.Type == winevt::EvtVarTypeEvtHandle {
-                let _ = varw.close_evt_unchecked();
-                None
-            } else {
-                None
+            match e.Type {
+                winevt::EvtVarTypeString => {
+                    Some(unsafe { U16CString::from_ptr_str(*e.u.StringVal()).to_string_lossy() })
+                }
+
+                winevt::EvtVarTypeAnsiString => {
+                    println!("ASCI STR");
+                    Some(
+                        unsafe { CStr::from_ptr(*e.u.AnsiStringVal()) }
+                            .to_string_lossy()
+                            .to_string(),
+                    )
+                }
+
+                winevt::EvtVarTypeEvtHandle => {
+                    let _ = varw.close_evt_unchecked();
+                    None
+                }
+
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_u32(&mut self, varw: &mut WevWrapper, field: &PubMetaField) -> Option<u32> {
+        if self.get_prop(field, varw).is_ok() {
+            let (e, _) = varw.get_pointer();
+            match e.Type {
+                winevt::EvtVarTypeUInt32 => Some(unsafe { *e.u.UInt32Val() }),
+
+                winevt::EvtVarTypeEvtHandle => {
+                    let _ = varw.close_evt_unchecked();
+                    None
+                }
+
+                _ => None,
             }
         } else {
             None
@@ -111,14 +143,18 @@ impl PubMetadataFetcher {
         let parameter_file_path = self.get_str(varw, &meta_fields::PARAMETER_FILE_PATH);
         let message_file_path = self.get_str(varw, &meta_fields::MESSAGE_FILE_PATH);
 
+        let help_link = self.get_str(varw, &meta_fields::HELP_LINK);
+
+        let message_id = self.get_u32(varw, &meta_fields::PUBLISHER_MESSAGE_ID);
+
         Some(PubMetadata {
             guid,
             parameter_file_path,
             message_file_path,
 
-            help_link: None,
+            help_link,
 
-            message_id: None,
+            message_id,
 
             channels: vec![],
             levels: vec![],
