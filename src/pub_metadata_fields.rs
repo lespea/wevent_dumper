@@ -1,6 +1,6 @@
 use winapi::um::winevt;
 
-struct PubMetaField {
+pub struct PubMetaField {
     pub id: u32,
     pub name: &'static str,
 }

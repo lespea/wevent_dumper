@@ -1,5 +1,4 @@
-use shared::guiddef::GUID;
-
+#[derive(Debug)]
 pub struct Channel {
     pub name: Option<String>,
     pub index: Option<u32>,
@@ -8,12 +7,14 @@ pub struct Channel {
     pub message_id: Option<u32>,
 }
 
+#[derive(Debug)]
 pub struct Level {
     pub name: Option<String>,
     pub id: Option<u32>,
     pub message_id: Option<u32>,
 }
 
+#[derive(Debug)]
 pub struct Task {
     pub name: Option<String>,
     pub guid: Option<String>,
@@ -21,6 +22,7 @@ pub struct Task {
     pub message_id: Option<u32>,
 }
 
+#[derive(Debug)]
 pub struct OpCode {
     pub name: Option<String>,
     pub opcode_value: Option<u16>,
@@ -28,16 +30,17 @@ pub struct OpCode {
     pub message_id: Option<u32>,
 }
 
+#[derive(Debug)]
 pub struct Keyword {
     pub name: Option<String>,
     pub mask: Option<u64>,
     pub message_id: Option<u32>,
 }
 
+#[derive(Debug)]
 pub struct PubMetadata {
     pub guid: Option<String>,
 
-    pub resource_file_path: Option<String>,
     pub parameter_file_path: Option<String>,
     pub message_file_path: Option<String>,
 

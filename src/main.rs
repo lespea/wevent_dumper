@@ -3,22 +3,17 @@ use std::io::prelude::*;
 
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use widestring::U16CStr;
 
 use win_events;
 use win_events::channel_iter::ChannelIter;
 use win_events::errors::WinEvtError;
 use win_events::event_iter::WinEventsIter;
 use win_events::pub_metadata_fetcher::PubMetadataFetcher;
-use win_events::pub_metadata_fields as meta_fields;
 use win_events::renderer::Renderer;
 use win_events::vwrapper::WevWrapper;
-use winapi::um::winevt::{self, EVT_VARIANT_TYPE_ARRAY};
 
 const DUMP: bool = false;
 const LEVELS: bool = true;
-
-const TEST_PROVIDER: &str = "PowerShell";
 
 fn dump_chan(chan: &str, rend: &mut Renderer, fh: &mut GzEncoder<File>) -> Result<(), WinEvtError> {
     println!("Processing {}", chan);
@@ -57,30 +52,16 @@ fn print_channels() -> Result<(), WinEvtError> {
 fn print_levels() -> Result<(), WinEvtError> {
     let mut varw = WevWrapper::new().unwrap();
 
-    println!("Getting meta");
-    let mut meta = PubMetadataFetcher::for_publisher(TEST_PROVIDER.to_string())?;
+    let out = std::io::stdout();
+    let mut out = out.lock();
 
-    for field in meta_fields::PUB_META_FIELDS.iter() {
-        println!("Getting {}", field.name);
-        meta.get_prop(field, &mut varw);
-        println!("{} / {}", varw.Count, varw.Type);
-        if varw.Type == winevt::EvtVarTypeString {
-            println!(
-                "{}",
-                unsafe { U16CStr::from_ptr_str(*unsafe { varw.u.StringVal() }) }.to_string_lossy()
-            );
+    for c in ChannelIter::new().unwrap() {
+        if let Ok(n) = c {
+            if let Ok(mut meta) = PubMetadataFetcher::for_publisher(n.clone()) {
+                let _ = writeln!(out, "{} - {:?}", n, meta.get_metadata(&mut varw));
+            }
         }
     }
-    //    println!("Getting prop");
-    //    meta.get_prop(meta_fields::PARAMETER_FILE_PATH, &mut varw)?;
-    //    println!("{} / {}", varw.Count, varw.Type);
-
-    //    let guid = unsafe { varw.u.StringVal() };
-    //    println!(
-    //        "{}",
-    //        unsafe { U16CStr::from_ptr_str(*guid) }.to_string_lossy()
-    //    );
-    //    println!("{}", unsafe{U16CString::from_ptr_str(*guid)}.to_string_lossy());
 
     Ok(())
 }

@@ -1,9 +1,11 @@
 use std::alloc;
-use std::ptr;
-
 use std::ops::Deref;
-use winapi::um::winevt::EVT_VARIANT;
+use std::ptr;
+use winapi::um::winevt;
 use winapi::um::winevt::PEVT_VARIANT;
+use winapi::um::winevt::{EvtClose, EVT_VARIANT};
+
+use crate::errors::WinEvtError;
 
 pub struct WevWrapper {
     pointer: PEVT_VARIANT,
@@ -32,7 +34,7 @@ impl WevWrapper {
 
         let bytes = unsafe { alloc::alloc_zeroed(layout) };
 
-        if bytes == ptr::null_mut() {
+        if bytes.is_null() {
             panic!("Couldn't allocate a windows event variant object")
         }
 
@@ -42,6 +44,29 @@ impl WevWrapper {
             align,
             layout,
         })
+    }
+
+    pub fn close_evt(&self) -> Result<(), WinEvtError> {
+        if !self.pointer.is_null() {
+            let evt = unsafe { *self.pointer };
+            if evt.Type == winevt::EvtVarTypeEvtHandle {
+                let evt = unsafe { *evt.u.EvtHandleVal() };
+                if !evt.is_null() {
+                    return crate::utils::check_okay(unsafe { EvtClose(evt) });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn close_evt_unchecked(&self) -> Result<(), WinEvtError> {
+        let evt = unsafe { *(*self.pointer).u.EvtHandleVal() };
+        if !evt.is_null() {
+            crate::utils::check_okay(unsafe { EvtClose(evt) })
+        } else {
+            Ok(())
+        }
     }
 
     pub fn get_pointer<'a, 'b: 'a>(&'b mut self) -> (&'a mut EVT_VARIANT, usize) {
@@ -61,7 +86,7 @@ impl WevWrapper {
 
                 self.pointer = alloc::alloc_zeroed(layout) as PEVT_VARIANT;
 
-                if self.pointer == ptr::null_mut() {
+                if self.pointer.is_null() {
                     panic!("Couldn't allocate a windows event variant object")
                 }
             }

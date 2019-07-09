@@ -1,8 +1,9 @@
 use std::ptr;
 
 use widestring::U16CString;
+use winapi::shared::guiddef::GUID;
 use winapi::um::winevt::{
-    EvtClose, EvtGetPublisherMetadataProperty, EvtOpenPublisherMetadata, EVT_HANDLE,
+    self, EvtClose, EvtGetPublisherMetadataProperty, EvtOpenPublisherMetadata, EVT_HANDLE,
 };
 use winapi::um::winnt::{
     LANG_ENGLISH, LCID, MAKELANGID, MAKELCID, SORT_DEFAULT, SUBLANG_ENGLISH_US,
@@ -10,6 +11,8 @@ use winapi::um::winnt::{
 
 use crate::errors::WinError;
 use crate::errors::WinEvtError;
+use crate::pub_metadata::PubMetadata;
+use crate::pub_metadata_fields as meta_fields;
 use crate::pub_metadata_fields::PubMetaField;
 use crate::utils;
 use crate::vwrapper::WevWrapper;
@@ -73,6 +76,74 @@ impl PubMetadataFetcher {
 
         Ok(())
     }
+
+    fn get_str(&mut self, varw: &mut WevWrapper, field: &PubMetaField) -> Option<String> {
+        if self.get_prop(field, varw).is_ok() {
+            let (e, _) = varw.get_pointer();
+            if e.Type == winevt::EvtVarTypeString {
+                Some(unsafe { U16CString::from_ptr_str(*e.u.StringVal()).to_string_lossy() })
+            } else if e.Type == winevt::EvtVarTypeEvtHandle {
+                let _ = varw.close_evt_unchecked();
+                None
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn get_metadata(&mut self, varw: &mut WevWrapper) -> Option<PubMetadata> {
+        let guid = if self.get_prop(&meta_fields::PUBLISHER_GUID, varw).is_ok() {
+            let (e, _) = varw.get_pointer();
+            if e.Type == winevt::EvtVarTypeGuid {
+                Some(format_guid(unsafe { **e.u.GuidVal() }))
+            } else if e.Type == winevt::EvtVarTypeEvtHandle {
+                let _ = varw.close_evt_unchecked();
+                None
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let parameter_file_path = self.get_str(varw, &meta_fields::PARAMETER_FILE_PATH);
+        let message_file_path = self.get_str(varw, &meta_fields::MESSAGE_FILE_PATH);
+
+        Some(PubMetadata {
+            guid,
+            parameter_file_path,
+            message_file_path,
+
+            help_link: None,
+
+            message_id: None,
+
+            channels: vec![],
+            levels: vec![],
+            tasks: vec![],
+            opcodes: vec![],
+            keywords: vec![],
+        })
+    }
+}
+
+fn format_guid(g: GUID) -> String {
+    format!(
+        "{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}",
+        g.Data1,
+        g.Data2,
+        g.Data3,
+        g.Data4[0],
+        g.Data4[1],
+        g.Data4[2],
+        g.Data4[3],
+        g.Data4[4],
+        g.Data4[5],
+        g.Data4[6],
+        g.Data4[7],
+    )
 }
 
 impl Drop for PubMetadataFetcher {
