@@ -1,5 +1,5 @@
 [package]
-name = "wevents_dumper"
+name = "win_events_dumper"
 version = "0.1.0"
 authors = ["Adam Lesperance <lespea@gmail.com>"]
 edition = "2018"
@@ -11,4 +11,4 @@ sloggers = "0"
 snafu = "0.4"
 #wchar = "0.5"
 #widestring = "0.4"
-wevents = { version = "0", path = "../wevents" }
+win_events = { version = "0", path = "../win_events" }

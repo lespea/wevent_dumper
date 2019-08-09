@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use std::error::Error;
+use std::io::Error;
 use widestring::U16String;
 use winapi::shared::winerror;
 use winapi::shared::winerror::*;
@@ -119,7 +119,7 @@ impl WinEvtError {
             ERROR_EVT_VERSION_TOO_NEW => "version too new".to_string(),
             ERROR_EVT_VERSION_TOO_OLD => "version too old".to_string(),
 
-            other => try_detailed_error().unwrap_or_else(|| Error::from_raw_os_error(other).to_string()),
+            other => try_detailed_error().unwrap_or_else(|| Error::from_raw_os_error(other as i32).to_string()),
         };
 
         WinEvtError { errno, msg }

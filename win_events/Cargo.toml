@@ -1,5 +1,5 @@
 [package]
-name = "wevents"
+name = "win_events"
 version = "0.1.0"
 authors = ["Adam Lesperance <lespea@gmail.com>"]
 edition = "2018"

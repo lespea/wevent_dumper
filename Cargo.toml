@@ -1,5 +1,5 @@
 [workspace]
-members = ["wevents", "wevents_dumper"]
+members = ["win_events", "win_events_dumper"]
 
 [profile.release]
 lto = true
