@@ -1,11 +1,11 @@
-use std::fmt::{Display, Error, Formatter};
+use std::fmt::{Display, Formatter};
 
+use std::error::Error;
 use widestring::U16String;
 use winapi::shared::winerror;
 use winapi::shared::winerror::*;
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::winevt::EvtGetExtendedStatus;
-use windows_error::WindowsError;
 
 pub enum WinError {
     NoMoreItems,
@@ -31,7 +31,7 @@ pub struct WinEvtError {
 }
 
 impl Display for WinEvtError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         f.write_str(self.msg.as_str())
     }
 }
@@ -119,7 +119,7 @@ impl WinEvtError {
             ERROR_EVT_VERSION_TOO_NEW => "version too new".to_string(),
             ERROR_EVT_VERSION_TOO_OLD => "version too old".to_string(),
 
-            other => try_detailed_error().unwrap_or_else(|| WindowsError::new(other).to_string()),
+            other => try_detailed_error().unwrap_or_else(|| Error::from_raw_os_error(other).to_string()),
         };
 
         WinEvtError { errno, msg }

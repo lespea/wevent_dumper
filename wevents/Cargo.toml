@@ -1,0 +1,12 @@
+[package]
+name = "wevents"
+version = "0.1.0"
+authors = ["Adam Lesperance <lespea@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+slog = "2"
+snafu = "0.4"
+#wchar = "0.5"
+widestring = "0.4"
+winapi = { version = "0.3", features = ["errhandlingapi", "winbase", "winerror", "winevt"] }

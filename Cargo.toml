@@ -1,25 +1,5 @@
-[package]
-name = "wevents"
-version = "0.1.0"
-authors = ["Adam Lesperance <lespea@gmail.com>"]
-edition = "2018"
-
-[lib]
-name = "win_events"
-path = "src/lib.rs"
-
-[[bin]]
-name = "wevent_dumper"
-path = "src/main.rs"
-
-[dependencies]
-#wchar = "0.2"
-flate2 = "1"
-widestring = "0.4"
-windows-error = "1"
-
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["errhandlingapi", "winbase", "winerror", "winevt"] }
+[workspace]
+members = ["wevents", "wevents_dumper"]
 
 [profile.release]
 lto = true
