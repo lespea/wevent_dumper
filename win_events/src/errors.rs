@@ -1,43 +1,106 @@
-use std::fmt::{Display, Formatter};
-
-use std::io::Error;
+use snafu::Snafu;
 use widestring::U16String;
 use winapi::shared::winerror;
 use winapi::shared::winerror::*;
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::winevt::EvtGetExtendedStatus;
 
-pub enum WinError {
+#[derive(Debug, Snafu)]
+pub enum WinEvtError {
+    #[snafu(display("No more items"))]
     NoMoreItems,
+
+    #[snafu(display("Insufficient buffer passed"))]
     InsufficientBuffer,
-    Err(WinEvtError),
+
+    #[snafu(display("Evt error {}: {}", errno, msg))]
+    StdEvtError { errno: u32, msg: &'static str },
+
+    #[snafu(display("Evt error {}: {}", errno, msg))]
+    ExtendedEvtError { errno: u32, msg: String },
+
+    #[snafu(display("Other os error"))]
+    OsError { source: std::io::Error },
 }
 
-impl WinError {
-    #[inline]
-    pub fn into_err(self) -> WinEvtError {
-        match self {
-            WinError::NoMoreItems => WinEvtError::from_dword(ERROR_NO_MORE_ITEMS),
-            WinError::InsufficientBuffer => WinEvtError::from_dword(ERROR_INSUFFICIENT_BUFFER),
-            WinError::Err(e) => e,
+impl WinEvtError {
+    pub fn from_last_error() -> Self {
+        Self::from_dword(unsafe { GetLastError() })
+    }
+
+    pub fn from_dword(errno: u32) -> Self {
+        match errno {
+            ERROR_NO_MORE_ITEMS => WinEvtError::NoMoreItems,
+            ERROR_INSUFFICIENT_BUFFER => WinEvtError::InsufficientBuffer,
+            _ => {
+                let msg: Option<&'static str> = match errno {
+                    ERROR_EVT_CANNOT_OPEN_CHANNEL_OF_QUERY => Some("cannot open channel of query"),
+                    ERROR_EVT_CHANNEL_CANNOT_ACTIVATE => Some("channel cannot activate"),
+                    ERROR_EVT_CHANNEL_NOT_FOUND => Some("channel not found"),
+                    ERROR_EVT_CONFIGURATION_ERROR => Some("configuration error"),
+                    ERROR_EVT_EVENT_DEFINITION_NOT_FOUND => Some("event definition not found"),
+                    ERROR_EVT_EVENT_TEMPLATE_NOT_FOUND => Some("event template not found"),
+                    ERROR_EVT_FILTER_ALREADYSCOPED => Some("filter alreadyscoped"),
+                    ERROR_EVT_FILTER_INVARG => Some("filter invarg"),
+                    ERROR_EVT_FILTER_INVTEST => Some("filter invtest"),
+                    ERROR_EVT_FILTER_INVTYPE => Some("filter invtype"),
+                    ERROR_EVT_FILTER_NOTELTSET => Some("filter noteltset"),
+                    ERROR_EVT_FILTER_OUT_OF_RANGE => Some("filter out of range"),
+                    ERROR_EVT_FILTER_PARSEERR => Some("filter parseerr"),
+                    ERROR_EVT_FILTER_TOO_COMPLEX => Some("filter too complex"),
+                    ERROR_EVT_FILTER_UNEXPECTEDTOKEN => Some("filter unexpectedtoken"),
+                    ERROR_EVT_FILTER_UNSUPPORTEDOP => Some("filter unsupportedop"),
+                    ERROR_EVT_INVALID_CHANNEL_PATH => Some("invalid channel path"),
+                    ERROR_EVT_INVALID_CHANNEL_PROPERTY_VALUE => {
+                        Some("invalid channel property value")
+                    }
+                    ERROR_EVT_INVALID_EVENT_DATA => Some("invalid event data"),
+                    ERROR_EVT_INVALID_OPERATION_OVER_ENABLED_DIRECT_CHANNEL => {
+                        Some("invalid operation over enabled direct channel")
+                    }
+                    ERROR_EVT_INVALID_PUBLISHER_NAME => Some("invalid publisher name"),
+                    ERROR_EVT_INVALID_PUBLISHER_PROPERTY_VALUE => {
+                        Some("invalid publisher property value")
+                    }
+                    ERROR_EVT_INVALID_QUERY => Some("invalid query"),
+                    ERROR_EVT_MALFORMED_XML_TEXT => Some("malformed xml text"),
+                    ERROR_EVT_MAX_INSERTS_REACHED => Some("max inserts reached"),
+                    ERROR_EVT_MESSAGE_ID_NOT_FOUND => Some("message id not found"),
+                    ERROR_EVT_MESSAGE_LOCALE_NOT_FOUND => Some("message locale not found"),
+                    ERROR_EVT_MESSAGE_NOT_FOUND => Some("message not found"),
+                    ERROR_EVT_NON_VALIDATING_MSXML => Some("non validating msxml"),
+                    ERROR_EVT_PUBLISHER_DISABLED => Some("publisher disabled"),
+                    ERROR_EVT_PUBLISHER_METADATA_NOT_FOUND => Some("publisher metadata not found"),
+                    ERROR_EVT_QUERY_RESULT_INVALID_POSITION => {
+                        Some("query result invalid position")
+                    }
+                    ERROR_EVT_QUERY_RESULT_STALE => Some("query result stale"),
+                    ERROR_EVT_SUBSCRIPTION_TO_DIRECT_CHANNEL => {
+                        Some("subscription to direct channel")
+                    }
+                    ERROR_EVT_UNRESOLVED_PARAMETER_INSERT => Some("unresolved parameter insert"),
+                    ERROR_EVT_UNRESOLVED_VALUE_INSERT => Some("unresolved value insert"),
+                    ERROR_EVT_VERSION_TOO_NEW => Some("version too new"),
+                    ERROR_EVT_VERSION_TOO_OLD => Some("version too old"),
+
+                    _ => None,
+                };
+
+                msg.map(|m| WinEvtError::StdEvtError { errno, msg: m })
+                    .or_else(|| {
+                        try_detailed_error()
+                            .map(|m| WinEvtError::ExtendedEvtError { errno, msg: m })
+                    })
+                    .unwrap_or_else(|| WinEvtError::OsError {
+                        source: std::io::Error::from_raw_os_error(errno as i32),
+                    })
+            }
         }
     }
 }
 
-#[derive(Debug)]
-pub struct WinEvtError {
-    pub errno: u32,
-    pub msg: String,
-}
-
-impl Display for WinEvtError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        f.write_str(self.msg.as_str())
-    }
-}
-
 fn try_detailed_error() -> Option<String> {
-    let mut buf = Vec::with_capacity(1024 * 32);
+    let mut buf = Vec::with_capacity(1024);
     let mut used = 0;
 
     let ret = unsafe { EvtGetExtendedStatus(buf.capacity() as u32, buf.as_mut_ptr(), &mut used) };
@@ -47,7 +110,7 @@ fn try_detailed_error() -> Option<String> {
             return None;
         } else {
             buf.clear();
-            buf.reserve(used as usize);
+            buf.resize(used as usize, 0);
 
             let ret =
                 unsafe { EvtGetExtendedStatus(buf.capacity() as u32, buf.as_mut_ptr(), &mut used) };
@@ -62,66 +125,5 @@ fn try_detailed_error() -> Option<String> {
         None
     } else {
         Some(unsafe { U16String::from_ptr(buf.as_ptr(), used as usize) }.to_string_lossy())
-    }
-}
-
-impl WinEvtError {
-    pub fn from_last_error() -> Self {
-        Self::from_dword(unsafe { GetLastError() })
-    }
-
-    pub fn from_dword(errno: u32) -> Self {
-        let msg: String = match errno {
-            ERROR_EVT_CANNOT_OPEN_CHANNEL_OF_QUERY => "cannot open channel of query".to_string(),
-            ERROR_EVT_CHANNEL_CANNOT_ACTIVATE => "channel cannot activate".to_string(),
-            ERROR_EVT_CHANNEL_NOT_FOUND => "channel not found".to_string(),
-            ERROR_EVT_CONFIGURATION_ERROR => "configuration error".to_string(),
-            ERROR_EVT_EVENT_DEFINITION_NOT_FOUND => "event definition not found".to_string(),
-            ERROR_EVT_EVENT_TEMPLATE_NOT_FOUND => "event template not found".to_string(),
-            ERROR_EVT_FILTER_ALREADYSCOPED => "filter alreadyscoped".to_string(),
-            ERROR_EVT_FILTER_INVARG => "filter invarg".to_string(),
-            ERROR_EVT_FILTER_INVTEST => "filter invtest".to_string(),
-            ERROR_EVT_FILTER_INVTYPE => "filter invtype".to_string(),
-            ERROR_EVT_FILTER_NOTELTSET => "filter noteltset".to_string(),
-            ERROR_EVT_FILTER_OUT_OF_RANGE => "filter out of range".to_string(),
-            ERROR_EVT_FILTER_PARSEERR => "filter parseerr".to_string(),
-            ERROR_EVT_FILTER_TOO_COMPLEX => "filter too complex".to_string(),
-            ERROR_EVT_FILTER_UNEXPECTEDTOKEN => "filter unexpectedtoken".to_string(),
-            ERROR_EVT_FILTER_UNSUPPORTEDOP => "filter unsupportedop".to_string(),
-            ERROR_EVT_INVALID_CHANNEL_PATH => "invalid channel path".to_string(),
-            ERROR_EVT_INVALID_CHANNEL_PROPERTY_VALUE => {
-                "invalid channel property value".to_string()
-            }
-            ERROR_EVT_INVALID_EVENT_DATA => "invalid event data".to_string(),
-            ERROR_EVT_INVALID_OPERATION_OVER_ENABLED_DIRECT_CHANNEL => {
-                "invalid operation over enabled direct channel".to_string()
-            }
-            ERROR_EVT_INVALID_PUBLISHER_NAME => "invalid publisher name".to_string(),
-            ERROR_EVT_INVALID_PUBLISHER_PROPERTY_VALUE => {
-                "invalid publisher property value".to_string()
-            }
-            ERROR_EVT_INVALID_QUERY => "invalid query".to_string(),
-            ERROR_EVT_MALFORMED_XML_TEXT => "malformed xml text".to_string(),
-            ERROR_EVT_MAX_INSERTS_REACHED => "max inserts reached".to_string(),
-            ERROR_EVT_MESSAGE_ID_NOT_FOUND => "message id not found".to_string(),
-            ERROR_EVT_MESSAGE_LOCALE_NOT_FOUND => "message locale not found".to_string(),
-            ERROR_EVT_MESSAGE_NOT_FOUND => "message not found".to_string(),
-            ERROR_EVT_NON_VALIDATING_MSXML => "non validating msxml".to_string(),
-            ERROR_EVT_PUBLISHER_DISABLED => "publisher disabled".to_string(),
-            ERROR_EVT_PUBLISHER_METADATA_NOT_FOUND => "publisher metadata not found".to_string(),
-            ERROR_EVT_QUERY_RESULT_INVALID_POSITION => "query result invalid position".to_string(),
-            ERROR_EVT_QUERY_RESULT_STALE => "query result stale".to_string(),
-            ERROR_EVT_SUBSCRIPTION_TO_DIRECT_CHANNEL => {
-                "subscription to direct channel".to_string()
-            }
-            ERROR_EVT_UNRESOLVED_PARAMETER_INSERT => "unresolved parameter insert".to_string(),
-            ERROR_EVT_UNRESOLVED_VALUE_INSERT => "unresolved value insert".to_string(),
-            ERROR_EVT_VERSION_TOO_NEW => "version too new".to_string(),
-            ERROR_EVT_VERSION_TOO_OLD => "version too old".to_string(),
-
-            other => try_detailed_error().unwrap_or_else(|| Error::from_raw_os_error(other as i32).to_string()),
-        };
-
-        WinEvtError { errno, msg }
     }
 }
