@@ -10,4 +10,4 @@ pub mod pub_metadata_fields;
 pub mod renderer;
 pub mod utils;
 pub mod wev_wrapper;
-//pub mod win_event;
+pub mod win_event;
