@@ -6,7 +6,7 @@ use winapi;
 use winapi::um::winbase::INFINITE;
 use winapi::um::winevt::{self, EvtClose, EvtNext, EvtQuery, EVT_HANDLE};
 
-use crate::errors::{WinError, WinEvtError};
+use crate::errors::{WinEvtError, WinEvtError};
 use crate::utils;
 use crate::win_event::WinEvent;
 
@@ -42,7 +42,7 @@ impl Iterator for WinEventsIter {
             )
         }) {
             return match e {
-                WinError::NoMoreItems => None,
+                WinEvtError::NoMoreItems => None,
                 _ => {
                     self.done = true;
                     Some(Err(e.into_err()))

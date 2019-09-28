@@ -13,7 +13,7 @@ pub fn not_null(e: EVT_HANDLE) -> Result<EVT_HANDLE, WinEvtError> {
     }
 }
 
-/// If the return is 0 then it's an error (windows is weird)
+/// If the return is 0 then it's an error
 #[inline(always)]
 pub fn check_okay(b: i32) -> Result<(), WinEvtError> {
     if b == 0 {
@@ -23,7 +23,7 @@ pub fn check_okay(b: i32) -> Result<(), WinEvtError> {
     }
 }
 
-/// If the return is false then it's an error (windows is weird)
+/// If the return is false then it's an error
 #[inline(always)]
 pub fn check_bool(b: BOOL) -> Result<(), WinEvtError> {
     if b == FALSE {

@@ -9,7 +9,7 @@ use winapi::um::winnt::{
     LANG_ENGLISH, LCID, MAKELANGID, MAKELCID, SORT_DEFAULT, SUBLANG_ENGLISH_US,
 };
 
-use crate::errors::WinError;
+use crate::errors::WinEvtError;
 use crate::errors::WinEvtError;
 use crate::pub_metadata::PubMetadata;
 use crate::pub_metadata_fields as meta_fields;
@@ -67,7 +67,7 @@ impl PubMetadataFetcher {
             )
         }) {
             return match e {
-                WinError::InsufficientBuffer => {
+                WinEvtError::InsufficientBuffer => {
                     varw.resize(buf_used as usize).unwrap();
                     return self.get_prop(field, varw);
                 }

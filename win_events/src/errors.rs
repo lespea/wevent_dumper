@@ -5,6 +5,8 @@ use winapi::shared::winerror::*;
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::winevt::EvtGetExtendedStatus;
 
+pub type Result<T> = std::result::Result<T, WinEvtError>;
+
 #[derive(Debug, Snafu)]
 pub enum WinEvtError {
     #[snafu(display("No more items"))]
@@ -12,6 +14,9 @@ pub enum WinEvtError {
 
     #[snafu(display("Insufficient buffer passed"))]
     InsufficientBuffer,
+
+    #[snafu(display("Found an invalid string pointer"))]
+    InvalidStrPtr,
 
     #[snafu(display("Evt error {}: {}", errno, msg))]
     StdEvtError { errno: u32, msg: &'static str },
@@ -103,21 +108,20 @@ fn try_detailed_error() -> Option<String> {
     let mut buf = Vec::with_capacity(1024);
     let mut used = 0;
 
-    let ret = unsafe { EvtGetExtendedStatus(buf.capacity() as u32, buf.as_mut_ptr(), &mut used) };
+    loop {
+        let ret =
+            unsafe { EvtGetExtendedStatus(buf.capacity() as u32, buf.as_mut_ptr(), &mut used) };
 
-    if ret != 0 {
-        if ret != winerror::ERROR_INSUFFICIENT_BUFFER {
-            return None;
-        } else {
-            buf.clear();
-            buf.resize(used as usize, 0);
-
-            let ret =
-                unsafe { EvtGetExtendedStatus(buf.capacity() as u32, buf.as_mut_ptr(), &mut used) };
-
-            if ret != 0 {
+        if ret != 0 {
+            if ret != winerror::ERROR_INSUFFICIENT_BUFFER {
                 return None;
+            } else if buf.capacity() > used as usize {
+                buf.reserve(used as usize)
+            } else {
+                buf.reserve((used as usize - buf.capacity()) + 10)
             }
+        } else {
+            break;
         }
     }
 

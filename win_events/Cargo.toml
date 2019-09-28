@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 slog = "2"
-snafu = "0.4"
+snafu = "0.5"
 #wchar = "0.5"
 widestring = "0.4"
 winapi = { version = "0.3", features = ["errhandlingapi", "winbase", "winerror", "winevt"] }
