@@ -6,11 +6,11 @@ use winapi;
 use winapi::um::winbase::INFINITE;
 use winapi::um::winevt::{self, EvtClose, EvtNext, EvtQuery, EVT_HANDLE};
 
-use crate::errors::{WinEvtError, WinEvtError};
+use crate::errors::{WinEvtError};
 use crate::utils;
 use crate::win_event::WinEvent;
 
-const EVENTS_BUFFER: usize = 10;
+const EVENTS_BUFFER: usize = 1024;
 
 pub struct WinEventsIter {
     handle: EVT_HANDLE,
@@ -31,7 +31,7 @@ impl Iterator for WinEventsIter {
         let mut returned = 0;
         let mut next: Vec<EVT_HANDLE> = vec![ptr::null_mut(); EVENTS_BUFFER];
 
-        if let Err(e) = utils::check_okay_check(unsafe {
+        if let Err(e) = utils::check_okay(unsafe {
             EvtNext(
                 self.handle,
                 EVENTS_BUFFER as u32,
@@ -42,10 +42,13 @@ impl Iterator for WinEventsIter {
             )
         }) {
             return match e {
-                WinEvtError::NoMoreItems => None,
+                WinEvtError::NoMoreItems => {
+                    self.done = true;
+                    None
+                }
                 _ => {
                     self.done = true;
-                    Some(Err(e.into_err()))
+                    Some(Err(e))
                 }
             };
         }
@@ -56,7 +59,7 @@ impl Iterator for WinEventsIter {
                 .map(|&h| Ok(WinEvent::new(h))),
         );
 
-        self.next()
+        self.events.pop_front()
     }
 }
 
