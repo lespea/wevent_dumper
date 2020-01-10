@@ -6,7 +6,7 @@ use winapi;
 use winapi::um::winbase::INFINITE;
 use winapi::um::winevt::{self, EvtClose, EvtNext, EvtQuery, EVT_HANDLE};
 
-use crate::errors::{WinEvtError};
+use crate::errors::WinEvtError;
 use crate::utils;
 use crate::win_event::WinEvent;
 

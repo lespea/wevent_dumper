@@ -1,5 +1,7 @@
-#[macro_use]
-extern crate slog;
+#![allow(unused_imports)]
+
+//#[macro_use]
+//extern crate slog;
 
 pub mod channel_iter;
 pub mod errors;
@@ -9,5 +11,5 @@ pub mod event_iter;
 pub mod pub_metadata_fields;
 pub mod renderer;
 pub mod utils;
-pub mod wev_wrapper;
+//pub mod wev_wrapper;
 pub mod win_event;

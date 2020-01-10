@@ -1,86 +1,70 @@
-//use std::fs::File;
-//use std::io::prelude::*;
-//
-//use flate2::write::GzEncoder;
-//use flate2::Compression;
-//
-//use win_events;
-//use win_events::channel_iter::ChannelIter;
-//use win_events::errors::WinEvtError;
-//use win_events::event_iter::WinEventsIter;
-//use win_events::pub_metadata_fetcher::PubMetadataFetcher;
-//use win_events::renderer::Renderer;
-//use win_events::vwrapper::WevWrapper;
-//
-//const DUMP: bool = false;
-//const LEVELS: bool = true;
-//
-//fn dump_chan(chan: &str, rend: &mut Renderer, fh: &mut GzEncoder<File>) -> Result<(), WinEvtError> {
-//    println!("Processing {}", chan);
-//    let iter = WinEventsIter::get_logs_for(chan, None)?;
-//
-//    for e in iter {
-//        match e {
-//            Err(err) => return Err(err),
-//            Ok(we) => writeln!(fh, "{}", rend.render(we)?).expect("Couldn't write entry"),
-//        }
-//    }
-//
-//    Ok(())
-//}
-//
-//fn print_channels() -> Result<(), WinEvtError> {
-//    let fh = File::create("events.xml.gz").expect("Couldn't open out file");
-//    //    let mut fh = BufWriter::with_capacity(1024 * 16, fh);
-//    let mut fh = GzEncoder::new(fh, Compression::new(3));
-//
-//    let mut rend = Renderer::new();
-//
-//    for c in ChannelIter::new().expect("Couldn't build channel iter") {
-//        match c {
-//            Err(err) => return Err(err),
-//            Ok(n) => {
-//                if let Err(e) = dump_chan(n.as_str(), &mut rend, &mut fh) {
-//                    eprintln!("Error dumping {}: {}", n, e)
-//                }
-//            }
-//        }
-//    }
-//    Ok(())
-//}
-//
-//fn print_levels() -> Result<(), WinEvtError> {
-//    let mut varw = WevWrapper::new().unwrap();
-//
-//    let out = std::io::stdout();
-//    let mut out = out.lock();
-//
-//    for c in ChannelIter::new().unwrap() {
-//        if let Ok(n) = c {
-//            if let Ok(mut meta) = PubMetadataFetcher::for_publisher(n.clone()) {
-//                let _ = writeln!(out, "{} - {:?}", n, meta.get_metadata(&mut varw));
-//            }
-//        }
-//    }
-//
-//    Ok(())
-//}
+#![allow(unused_imports)]
 
 use win_events::channel_iter::ChannelIter;
 use win_events::errors::Result;
+use win_events::event_iter::WinEventsIter;
+use winapi::um::winevt::*;
 
 fn main() -> Result<()> {
-    //    if DUMP {
-    //        print_channels()?;
-    //    }
-    //
-    //    if LEVELS {
-    //        print_levels()?;
-    //    }
-    //
+    let mut counts = [0u64; 64];
+
+    let p_types = [
+        (EvtVarTypeNull, "EvtVarTypeNull"),
+        (EvtVarTypeString, "EvtVarTypeString"),
+        (EvtVarTypeAnsiString, "EvtVarTypeAnsiString"),
+        (EvtVarTypeSByte, "EvtVarTypeSByte"),
+        (EvtVarTypeByte, "EvtVarTypeByte"),
+        (EvtVarTypeInt16, "EvtVarTypeInt16"),
+        (EvtVarTypeUInt16, "EvtVarTypeUInt16"),
+        (EvtVarTypeInt32, "EvtVarTypeInt32"),
+        (EvtVarTypeUInt32, "EvtVarTypeUInt32"),
+        (EvtVarTypeInt64, "EvtVarTypeInt64"),
+        (EvtVarTypeUInt64, "EvtVarTypeUInt64"),
+        (EvtVarTypeSingle, "EvtVarTypeSingle"),
+        (EvtVarTypeDouble, "EvtVarTypeDouble"),
+        (EvtVarTypeBoolean, "EvtVarTypeBoolean"),
+        (EvtVarTypeBinary, "EvtVarTypeBinary"),
+        (EvtVarTypeGuid, "EvtVarTypeGuid"),
+        (EvtVarTypeSizeT, "EvtVarTypeSizeT"),
+        (EvtVarTypeFileTime, "EvtVarTypeFileTime"),
+        (EvtVarTypeSysTime, "EvtVarTypeSysTime"),
+        (EvtVarTypeSid, "EvtVarTypeSid"),
+        (EvtVarTypeHexInt32, "EvtVarTypeHexInt32"),
+        (EvtVarTypeHexInt64, "EvtVarTypeHexInt64"),
+        (EvtVarTypeEvtHandle, "EvtVarTypeEvtHandle"),
+        (EvtVarTypeEvtXml, "EvtVarTypeEvtXml"),
+    ];
 
     for c in ChannelIter::new()? {
-        println!("{}", c.expect("Bad chan?"));
+        let chan = c.expect("Bad chan?");
+        //        println!("{}", chan);
+
+        match WinEventsIter::get_logs_for(&chan, None) {
+            Ok(witer) => {
+                for weo in witer {
+                    match weo {
+                        Ok(mut we) => we.test(&mut counts),
+                        Err(e) => eprintln!("Couldn't get event for {}: {}", chan, e),
+                    };
+                }
+            }
+
+            Err(e) => eprintln!("Couldn't get iter for {}: {}", chan, e),
+        };
+    }
+
+    for (i, name) in p_types.iter() {
+        let c = counts[*i as usize];
+        if c > 0 {
+            println!("{} :: {}", name, c);
+        }
+    }
+
+    {
+        let c = counts[63];
+        if c > 0 {
+            println!("Array :: {}", c);
+        }
     }
 
     Ok(())
