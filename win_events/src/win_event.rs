@@ -27,7 +27,7 @@ impl WinEvent {
         }
     }
 
-    pub fn test(&mut self, counts: &mut [u64; 64]) {
+    pub fn test(&mut self, counts: &mut [u64; 100]) {
         let ctx =
             utils::not_null(unsafe { EvtCreateRenderContext(0, null_mut(), EvtRenderContextUser) })
                 .expect("no ctx");
@@ -57,16 +57,14 @@ impl WinEvent {
             let rt = v.Type & EVT_VARIANT_TYPE_MASK;
             let is_arr = v.Type & EVT_VARIANT_TYPE_ARRAY > 0;
 
-            if rt > 63 {
+            if rt >= 50 {
                 println!("Weird type: {} / {} / {}", v.Type, rt, is_arr)
             } else {
-                counts[rt as usize] += 1;
-            }
-            //            unsafe{counts.get_unchecked_mut(rt as usize)} += 1;
-
-            if is_arr {
-                counts[63] += 1;
-                //                unsafe{counts.get_unchecked_mut(63)} += 1;
+                if is_arr {
+                    counts[50 + rt as usize] += 1;
+                } else {
+                    counts[rt as usize] += 1;
+                }
             }
 
             //            if v.Type == 1 {

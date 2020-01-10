@@ -6,7 +6,7 @@ use win_events::event_iter::WinEventsIter;
 use winapi::um::winevt::*;
 
 fn main() -> Result<()> {
-    let mut counts = [0u64; 64];
+    let mut counts = [0u64; 100];
 
     let p_types = [
         (EvtVarTypeNull, "EvtVarTypeNull"),
@@ -56,14 +56,13 @@ fn main() -> Result<()> {
     for (i, name) in p_types.iter() {
         let c = counts[*i as usize];
         if c > 0 {
-            println!("{} :: {}", name, c);
+            println!("{:-30} :: {:6}", name, c);
         }
     }
 
-    {
-        let c = counts[63];
-        if c > 0 {
-            println!("Array :: {}", c);
+    for (i, v) in counts[50..100].iter().enumerate() {
+        if *v > 0 {
+            println!("ARRAY {:-24} :: {:6}", p_types[i].1, *v);
         }
     }
 
