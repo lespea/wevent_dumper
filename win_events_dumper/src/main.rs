@@ -1,11 +1,20 @@
 #![allow(unused_imports)]
 
+use log::*;
+use winapi::um::winevt::*;
+
 use win_events::channel_iter::ChannelIter;
 use win_events::errors::Result;
 use win_events::event_iter::WinEventsIter;
-use winapi::um::winevt::*;
+use win_events::variant::VariantBuf;
 
 fn main() -> Result<()> {
+    femme::pretty::Logger::new()
+        .start(LevelFilter::Info)
+        .expect("Couldn't init logging");
+
+    info!("TEST LOG");
+
     let mut counts = [0u64; 100];
 
     let p_types = [
@@ -35,6 +44,8 @@ fn main() -> Result<()> {
         (EvtVarTypeEvtXml, "EvtVarTypeEvtXml"),
     ];
 
+    let mut b = VariantBuf::default();
+
     for c in ChannelIter::new()? {
         let chan = c.expect("Bad chan?");
         //        println!("{}", chan);
@@ -43,26 +54,26 @@ fn main() -> Result<()> {
             Ok(witer) => {
                 for weo in witer {
                     match weo {
-                        Ok(mut we) => we.test(&mut counts),
-                        Err(e) => eprintln!("Couldn't get event for {}: {}", chan, e),
+                        Ok(mut we) => we.test(&mut b, &mut counts),
+                        Err(e) => error!("Couldn't get event for {}: {}", chan, e),
                     };
                 }
             }
 
-            Err(e) => eprintln!("Couldn't get iter for {}: {}", chan, e),
+            Err(e) => error!("Couldn't get iter for {}: {}", chan, e),
         };
     }
 
     for (i, name) in p_types.iter() {
         let c = counts[*i as usize];
         if c > 0 {
-            println!("{:-30} :: {:6}", name, c);
+            info!("{:-30} :: {:6}", name, c);
         }
     }
 
     for (i, v) in counts[50..100].iter().enumerate() {
         if *v > 0 {
-            println!("ARRAY {:-24} :: {:6}", p_types[i].1, *v);
+            info!("ARRAY {:-24} :: {:6}", p_types[i].1, *v);
         }
     }
 

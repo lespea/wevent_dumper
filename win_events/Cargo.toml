@@ -5,7 +5,7 @@ authors = ["Adam Lesperance <lespea@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-slog = "2"
+log = { version = "0.4", features = ["kv_unstable_sval"] }
 snafu = "0.6"
 #wchar = "0.5"
 widestring = "0.4"
