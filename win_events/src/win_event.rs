@@ -22,12 +22,16 @@ impl WinEvent {
         WinEvent(handle)
     }
 
-    pub fn test(&mut self, buf: &mut VariantBuf, counts: &mut [u64; 100]) {
-        let ctx =
-            utils::not_null(unsafe { EvtCreateRenderContext(0, null_mut(), EvtRenderContextUser) })
-                .expect("no ctx");
+    pub fn test(&mut self, buf: &mut VariantBuf, _counts: &mut [u64; 100]) {
+        let ctx = utils::not_null(unsafe {
+            EvtCreateRenderContext(0, null_mut(), EvtRenderContextSystem)
+        })
+        .expect("no ctx");
 
-        buf.render(self.0, ctx).expect("Couldn't get evt info");
+        let len = buf.render(self.0, ctx).expect("Couldn't get evt info");
+        assert_eq!(buf.0.len(), 18);
+        assert_eq!(buf.0.len(), len as usize);
+        println!("Name: {:?}", buf.0[0].str());
 
         //        for v in buf.0.iter() {
         //            //            println!("{}: {}/{}", i, v.Type, v.Count);
